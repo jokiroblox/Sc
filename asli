@@ -1,1 +1,239 @@
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
 
+-- URL raw file di GitHub
+local scriptUrl = "https://raw.githubusercontent.com/username/repo/main/TeleportScript.lua" -- Ganti dengan URL Anda
+
+-- Fungsi untuk mengunduh dan mengeksekusi script terbaru
+local function updateScript()
+    local success, response = pcall(function()
+        return HttpService:GetAsync(scriptUrl)
+    end)
+    if success then
+        StarterGui:SetCore("SendNotification", {
+            Title = "Script Update",
+            Text = "Updating script from GitHub...",
+            Duration = 3
+        })
+        loadstring(response)() -- Eksekusi script terbaru
+    else
+        StarterGui:SetCore("SendNotification", {
+            Title = "Update Failed",
+            Text = "Could not fetch script: " .. tostring(response),
+            Duration = 3
+        })
+    end
+end
+
+-- Panggil update saat script dimulai
+updateScript()
+
+-- Sisanya adalah script teleport sebelumnya
+local player = game.Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- Checkpoint coordinates
+local checkpoints = {
+    {x = -6043.5, y = -154.7, z = -60.7},
+    {x = -5916.9, y = -159.5, z = -4.4},
+    {x = -5278.0, y = -97.2, z = -167.1},
+    {x = -4304.4, y = 104.2, z = -205.1},
+    {x = -3852.3, y = 189.1, z = 262.6},
+    {x = -3719.0, y = 224.4, z = 235.8} -- Special coordinate for 130 jumps
+}
+
+local specialCoordJumps = {x = -3719.0, y = 224.4, z = 235.8}
+local autoTeleportActive = false
+
+-- Teleport function
+local function teleportTo(pos)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos.x, pos.y + 3, pos.z)
+    end
+end
+
+-- Perform jumps with notification for each jump
+local function performJumps(pos)
+    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        local jumpCount = (pos.x == specialCoordJumps.x and pos.y == specialCoordJumps.y and pos.z == specialCoordJumps.z) and 130 or 15
+        for i = 1, jumpCount do
+            if not autoTeleportActive then break end
+            humanoid.Jump = true
+            StarterGui:SetCore("SendNotification", {
+                Title = "Jump " .. i .. "/" .. jumpCount,
+                Text = "Jumping at: " .. pos.x .. ", " .. pos.y .. ", " .. pos.z,
+                Duration = 1
+            })
+            wait(0.5)
+        end
+    end
+end
+
+-- Sequential teleport with 1-second delay, no looping
+local function autoTeleport()
+    for _, pos in ipairs(checkpoints) do
+        if not autoTeleportActive then break end
+        teleportTo(pos)
+        StarterGui:SetCore("SendNotification", {
+            Title = "Teleported",
+            Text = "To coordinate: " .. pos.x .. ", " .. pos.y .. ", " .. pos.z,
+            Duration = 2
+        })
+        performJumps(pos)
+        wait(1)
+    end
+    autoTeleportActive = false
+    startButton.Text = "Start Teleport"
+    startButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    StarterGui:SetCore("SendNotification", {
+        Title = "Teleport Completed",
+        Text = "All teleports and jumps finished.",
+        Duration = 3
+    })
+end
+
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TeleportGUI"
+screenGui.Parent = game:GetService("CoreGui")
+screenGui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 150)
+frame.Position = UDim2.new(0.5, -125, 0.5, -75)
+frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Parent = screenGui
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleBar.Parent = frame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+titleLabel.Text = "Auto Teleport GUI"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 18
+titleLabel.Parent = titleBar
+
+-- Minimize button
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -60, 0, 0)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+minimizeButton.Text = "-"
+minimizeButton.TextColor3 = Color3.new(1, 1, 1)
+minimizeButton.Parent = titleBar
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -30, 0, 0)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.new(1, 1, 1)
+closeButton.Parent = titleBar
+
+-- Start button
+local startButton = Instance.new("TextButton")
+startButton.Size = UDim2.new(0.8, 0, 0, 40)
+startButton.Position = UDim2.new(0.1, 0, 0, 50)
+startButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+startButton.Text = "Start Teleport"
+startButton.TextColor3 = Color3.new(1, 1, 1)
+startButton.Font = Enum.Font.SourceSansBold
+startButton.TextSize = 20
+startButton.Parent = frame
+
+-- Draggable functionality
+local dragging, dragInput, dragStart, startPos
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Button functionality
+startButton.MouseButton1Click:Connect(function()
+    if not autoTeleportActive then
+        autoTeleportActive = true
+        startButton.Text = "Stop Teleport"
+        startButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        StarterGui:SetCore("SendNotification", {
+            Title = "Teleport Started",
+            Text = "Teleporting to checkpoints with jumps.",
+            Duration = 3
+        })
+        spawn(autoTeleport)
+    else
+        autoTeleportActive = false
+        startButton.Text = "Start Teleport"
+        startButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        StarterGui:SetCore("SendNotification", {
+            Title = "Teleport Stopped",
+            Text = "Teleportation stopped.",
+            Duration = 3
+        })
+    end
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    StarterGui:SetCore("SendNotification", {
+        Title = "GUI Minimized",
+        Text = "Press RightControl to show GUI.",
+        Duration = 3
+    })
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    autoTeleportActive = false
+    screenGui:Destroy()
+    StarterGui:SetCore("SendNotification", {
+        Title = "GUI Closed",
+        Text = "Teleport GUI has been closed.",
+        Duration = 3
+    })
+end)
+
+-- Toggle GUI visibility with RightControl
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        frame.Visible = not frame.Visible
+    end
+end)
+
+-- Initial notification
+StarterGui:SetCore("SendNotification", {
+    Title = "Teleport GUI Loaded",
+    Text = "Press Start to begin teleporting with jumps.",
+    Duration = 5
+})
+
+print("Teleport GUI loaded. Press Start to begin teleporting to checkpoints with jumps.")
