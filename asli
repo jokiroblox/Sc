@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 
 -- URL raw file di GitHub
-local scriptUrl = "https://raw.githubusercontent.com/jokiroblox/Sc/refs/heads/main/Update" -- Ganti dengan URL Anda
+local scriptUrl = "https://raw.githubusercontent.com/jokiroblox/Sc/refs/heads/main/Update.lua" -- Ganti dengan URL Anda
 
 -- Fungsi untuk mengunduh dan mengeksekusi script terbaru
 local function updateScript()
